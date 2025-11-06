@@ -1,5 +1,8 @@
-#ifndef ARRAY1_H
-#define ARRAY1_H
+// SDFGen - Signed Distance Field Generator
+// Copyright (c) 2015 Christopher Batty, 2025 Brad Chamberlain
+// Licensed under the MIT License - see LICENSE file
+
+#pragma once
 
 #include <algorithm>
 #include <cstring>
@@ -791,4 +794,3 @@ typedef WrapArray1<unsigned short>     WrapArray1us;
 typedef WrapArray1<char>               WrapArray1c;
 typedef WrapArray1<unsigned char>      WrapArray1uc;
 
-#endif

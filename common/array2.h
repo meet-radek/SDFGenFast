@@ -1,5 +1,8 @@
-#ifndef ARRAY2_H
-#define ARRAY2_H
+// SDFGen - Signed Distance Field Generator
+// Copyright (c) 2015 Christopher Batty, 2025 Brad Chamberlain
+// Licensed under the MIT License - see LICENSE file
+
+#pragma once
 
 #include "array1.h"
 #include <algorithm>
@@ -277,4 +280,3 @@ typedef Array2<unsigned short, WrapArray1<unsigned short> >         WrapArray2us
 typedef Array2<char, WrapArray1<char> >                             WrapArray2c;
 typedef Array2<unsigned char, WrapArray1<unsigned char> >           WrapArray2uc;
 
-#endif

@@ -1,5 +1,8 @@
-#ifndef VEC_H
-#define VEC_H
+// SDFGen - Signed Distance Field Generator
+// Copyright (c) 2015 Christopher Batty, 2025 Brad Chamberlain
+// Licensed under the MIT License - see LICENSE file
+
+#pragma once
 
 #include <cassert>
 #include <cmath>
@@ -475,4 +478,3 @@ inline void update_minmax(const Vec<N,T> &x, Vec<N,T> &xmin, Vec<N,T> &xmax)
    for(unsigned int i=0; i<N; ++i) update_minmax(x[i], xmin[i], xmax[i]);
 }
 
-#endif

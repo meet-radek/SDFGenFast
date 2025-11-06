@@ -1,5 +1,8 @@
-#ifndef UTIL_H
-#define UTIL_H
+// SDFGen - Signed Distance Field Generator
+// Copyright (c) 2015 Christopher Batty, 2025 Brad Chamberlain
+// Licensed under the MIT License - see LICENSE file
+
+#pragma once
 
 #include <algorithm>
 #include <vector>
@@ -194,13 +197,8 @@ inline T ramp(T r)
 { return smooth_step((r+1)/2)*2-1; }
 
 #ifdef WIN32
-inline int lround(double x)
-{
-   if(x>0)
-      return (x-floor(x)<0.5) ? (int)floor(x) : (int)ceil(x);
-   else
-      return (x-floor(x)<=0.5) ? (int)floor(x) : (int)ceil(x);
-}
+// lround is now provided by modern C++ standard library
+// Removed legacy Windows compatibility shim
 
 inline double remainder(double x, double y)
 {
@@ -467,4 +465,3 @@ void write_matlab(std::ostream& output, const std::vector<T>& a, const char *var
    output.precision(old_precision);
 }
 
-#endif

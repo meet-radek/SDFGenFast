@@ -1,4 +1,11 @@
+// SDFGen - Signed Distance Field Generator
+// Copyright (c) 2015 Christopher Batty, 2025 Brad Chamberlain
+// Licensed under the MIT License - see LICENSE file
+
 #include "makelevelset3.h"
+#include <iostream>
+#include <thread>
+#include <vector>
 
 // find distance x0 is from segment x1-x2
 static float point_segment_distance(const Vec3f &x0, const Vec3f &x1, const Vec3f &x2)
@@ -79,6 +86,30 @@ static void sweep(const std::vector<Vec3ui> &tri, const std::vector<Vec3f> &x,
    }
 }
 
+// Threaded sweep - process a range of k slices
+static void sweep_range(const std::vector<Vec3ui> &tri, const std::vector<Vec3f> &x,
+                        Array3f &phi, Array3i &closest_tri, const Vec3f &origin, float dx,
+                        int di, int dj, int dk, int k_start, int k_end)
+{
+   int i0, i1;
+   if(di>0){ i0=1; i1=phi.ni; }
+   else{ i0=phi.ni-2; i1=-1; }
+   int j0, j1;
+   if(dj>0){ j0=1; j1=phi.nj; }
+   else{ j0=phi.nj-2; j1=-1; }
+
+   for(int k=k_start; k!=k_end; k+=dk) for(int j=j0; j!=j1; j+=dj) for(int i=i0; i!=i1; i+=di){
+      Vec3f gx(i*dx+origin[0], j*dx+origin[1], k*dx+origin[2]);
+      check_neighbour(tri, x, phi, closest_tri, gx, i, j, k, i-di, j,    k);
+      check_neighbour(tri, x, phi, closest_tri, gx, i, j, k, i,    j-dj, k);
+      check_neighbour(tri, x, phi, closest_tri, gx, i, j, k, i-di, j-dj, k);
+      check_neighbour(tri, x, phi, closest_tri, gx, i, j, k, i,    j,    k-dk);
+      check_neighbour(tri, x, phi, closest_tri, gx, i, j, k, i-di, j,    k-dk);
+      check_neighbour(tri, x, phi, closest_tri, gx, i, j, k, i,    j-dj, k-dk);
+      check_neighbour(tri, x, phi, closest_tri, gx, i, j, k, i-di, j-dj, k-dk);
+   }
+}
+
 // calculate twice signed area of triangle (0,0)-(x1,y1)-(x2,y2)
 // return an SOS-determined sign (-1, +1, or 0 only if it's a truly degenerate triangle)
 static int orientation(double x1, double y1, double x2, double y2, double &twice_signed_area)
@@ -115,14 +146,18 @@ static bool point_in_triangle_2d(double x0, double y0,
    return true;
 }
 
+namespace sdfgen {
+namespace cpu {
+
 void make_level_set3(const std::vector<Vec3ui> &tri, const std::vector<Vec3f> &x,
                      const Vec3f &origin, float dx, int ni, int nj, int nk,
-                     Array3f &phi, const int exact_band)
+                     Array3f &phi, const int exact_band, int num_threads)
 {
    phi.resize(ni, nj, nk);
    phi.assign((ni+nj+nk)*dx); // upper bound on distance
    Array3i closest_tri(ni, nj, nk, -1);
    Array3i intersection_count(ni, nj, nk, 0); // intersection_count(i,j,k) is # of tri intersections in (i-1,i]x{j}x{k}
+
    // we begin by initializing distances near the mesh, and figuring out intersection counts
    Vec3f ijkmin, ijkmax;
    for(unsigned int t=0; t<tri.size(); ++t){
@@ -159,17 +194,63 @@ void make_level_set3(const std::vector<Vec3ui> &tri, const std::vector<Vec3f> &x
          }
       }
    }
-   // and now we fill in the rest of the distances with fast sweeping
+
+   // Multi-threaded fast sweeping (FluidX3D approach - simple and fast)
+   // Determine number of threads (0 = auto-detect)
+   unsigned int threads = (num_threads <= 0) ? std::thread::hardware_concurrency() : (unsigned int)num_threads;
+   if(threads == 0) threads = 4; // fallback
+
    for(unsigned int pass=0; pass<2; ++pass){
-      sweep(tri, x, phi, closest_tri, origin, dx, +1, +1, +1);
-      sweep(tri, x, phi, closest_tri, origin, dx, -1, -1, -1);
-      sweep(tri, x, phi, closest_tri, origin, dx, +1, +1, -1);
-      sweep(tri, x, phi, closest_tri, origin, dx, -1, -1, +1);
-      sweep(tri, x, phi, closest_tri, origin, dx, +1, -1, +1);
-      sweep(tri, x, phi, closest_tri, origin, dx, -1, +1, -1);
-      sweep(tri, x, phi, closest_tri, origin, dx, +1, -1, -1);
-      sweep(tri, x, phi, closest_tri, origin, dx, -1, +1, +1);
+      // For each of the 8 sweep directions
+      int sweep_dirs[8][3] = {
+         {+1, +1, +1}, {-1, -1, -1}, {+1, +1, -1}, {-1, -1, +1},
+         {+1, -1, +1}, {-1, +1, -1}, {+1, -1, -1}, {-1, +1, +1}
+      };
+
+      for(int s=0; s<8; ++s){
+         int di = sweep_dirs[s][0];
+         int dj = sweep_dirs[s][1];
+         int dk = sweep_dirs[s][2];
+
+         // Determine k range
+         int k0, k1;
+         if(dk>0){ k0=1; k1=nk; }
+         else{ k0=nk-2; k1=-1; }
+
+         // Split work among threads
+         std::vector<std::thread> thread_pool;
+         int k_range = (dk>0) ? (k1-k0) : (k0-k1);
+
+         // CRITICAL: Don't use more threads than we have slices
+         unsigned int effective_threads = std::min(threads, (unsigned int)k_range);
+         if(effective_threads == 0) effective_threads = 1;
+
+         int slices_per_thread = std::max(1, k_range / (int)effective_threads);
+
+         for(unsigned int t=0; t<effective_threads; ++t){
+            int thread_k_start, thread_k_end;
+            if(dk>0){
+               thread_k_start = k0 + t * slices_per_thread;
+               thread_k_end = (t == effective_threads-1) ? k1 : (k0 + (t+1) * slices_per_thread);
+            } else {
+               thread_k_start = k0 - t * slices_per_thread;
+               thread_k_end = (t == effective_threads-1) ? k1 : (k0 - (t+1) * slices_per_thread);
+            }
+
+            if((dk>0 && thread_k_start < thread_k_end) || (dk<0 && thread_k_start > thread_k_end)){
+               thread_pool.emplace_back(sweep_range, std::ref(tri), std::ref(x),
+                                   std::ref(phi), std::ref(closest_tri),
+                                   origin, dx, di, dj, dk, thread_k_start, thread_k_end);
+            }
+         }
+
+         // Wait for all threads to complete
+         for(auto& thread : thread_pool){
+            thread.join();
+         }
+      }
    }
+
    // then figure out signs (inside/outside) from intersection counts
    for(int k=0; k<nk; ++k) for(int j=0; j<nj; ++j){
       int total_count=0;
@@ -181,4 +262,7 @@ void make_level_set3(const std::vector<Vec3ui> &tri, const std::vector<Vec3f> &x
       }
    }
 }
+
+} // namespace cpu
+} // namespace sdfgen
 
