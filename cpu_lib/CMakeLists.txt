@@ -19,6 +19,7 @@ set_target_properties(sdfgen_cpu PROPERTIES
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
+    POSITION_INDEPENDENT_CODE ON
 )
 
 # Make headers available

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <vector>
 #include <cmath>
+#include <climits>
 #include <iostream>
 
 #ifndef M_PI

@@ -85,11 +85,9 @@ endif()
 # Always build the main application
 add_subdirectory(app)
 
-# Conditionally build tests (only if GPU is built)
-if(HAVE_CUDA AND SDFGEN_BUILD_GPU)
-    enable_testing()
-    add_subdirectory(tests)
-endif()
+# Always build tests
+enable_testing()
+add_subdirectory(tests)
 
 # Conditionally build Python bindings
 if(BUILD_PYTHON_BINDINGS)

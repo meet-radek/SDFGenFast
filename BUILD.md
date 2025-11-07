@@ -260,7 +260,7 @@ python -c "import sdfgen; print('GPU:', sdfgen.is_gpu_available())"
 
 ### C++ Tests
 
-**Run all tests:**
+**Run tests from build directory:**
 ```bash
 # Windows
 cd build-Release/bin
@@ -286,6 +286,18 @@ cd build-Release/bin
 ```
 
 **All tests should output `✓ PASSED` or `✓ ALL TESTS PASSED`**
+
+**Note:** Tests must be run from the `build-Release/bin/` directory where test resources are located.
+
+**Note:** Tests work on CPU-only builds. GPU-specific tests automatically skip GPU validation when CUDA is not built or GPU is not available at runtime.
+**Note:** Tests can be run from any directory - resource files are automatically located.
+
+**Alternative: Run all tests via CTest:**
+```bash
+cd build-Release
+ctest --output-on-failure
+```
+This runs all 14 tests and shows detailed output only for failures.
 
 ### Python Tests
 
@@ -487,5 +499,5 @@ SDFGenFast/
 
 ---
 
-**Last Updated:** 2025-01-06
-**Tested Platforms:** Windows 11, Ubuntu 22.04, Python 3.10-3.12, CUDA 12.4
+**Last Updated:** 2025-11-07
+**Tested Platforms:** Windows 11, Ubuntu 22.04 (CPU-only and CUDA 12.4 tested), Python 3.10-3.12

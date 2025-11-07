@@ -13,8 +13,9 @@ add_library(sdfgen_gpu STATIC
 set_target_properties(sdfgen_gpu PROPERTIES
     CUDA_STANDARD 11
     CUDA_STANDARD_REQUIRED ON
-    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_SEPARABLE_COMPILATION OFF
     CUDA_ARCHITECTURES "80;89"
+    POSITION_INDEPENDENT_CODE ON
 )
 
 # CRITICAL: Disable Fused Multiply-Add (FMA) instructions

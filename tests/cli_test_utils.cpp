@@ -24,6 +24,7 @@
     #define F_OK 0
 #else
     #include <unistd.h>
+    #include <linux/limits.h>  // for PATH_MAX
 #endif
 
 namespace cli_test {
@@ -43,10 +44,8 @@ CommandResult run_sdfgen(
     // Build command line
     std::string cmd = build_command_line(config.sdfgen_exe_path, args);
 
-#ifdef _WIN32
-    // On Windows, redirect stderr to stdout to capture all output
+    // Redirect stderr to stdout to capture all output
     cmd += " 2>&1";
-#endif
 
     if (config.verbose) {
         std::cout << "[CLI Test] Executing: " << cmd << "\n";
@@ -191,37 +190,125 @@ SDFFileInfo read_sdf_header(const std::string& path) {
     return info;
 }
 
+// Helper function to check if a directory exists
+static bool directory_exists(const std::string& path) {
+#ifdef _WIN32
+    return (_access(path.c_str(), F_OK) == 0);
+#else
+    struct stat info;
+    return (stat(path.c_str(), &info) == 0 && (info.st_mode & S_IFDIR));
+#endif
+}
+
+// Helper function to find the test resources directory
+// Searches multiple possible locations to support running tests from any directory
+static std::string find_resources_directory() {
+    // List of possible resource locations (in priority order)
+    const char* candidates[] = {
+        "./resources/",           // Running from tests/ directory or build-Release/bin/ (with copied resources)
+        "../../tests/resources/", // Running from build-Release/bin/ (without copied resources)
+        "../resources/",          // Edge case: running from build-Release/
+        "resources/",             // Fallback relative path
+    };
+
+    for (const char* candidate : candidates) {
+        if (directory_exists(candidate)) {
+#ifdef _WIN32
+            // Convert to absolute path on Windows for reliability
+            char abs_path[_MAX_PATH];
+            if (_fullpath(abs_path, candidate, _MAX_PATH) != nullptr) {
+                return std::string(abs_path) + "\\";
+            }
+#endif
+            return candidate;
+        }
+    }
+
+    // No resources found - return default and let tests fail with clear error
+    return "./resources/";
+}
+
 // Get default test configuration
 TestConfig get_default_test_config() {
     TestConfig config;
 
     // Resolve paths - use absolute paths on Windows to avoid popen() issues
-    // Tests run from tests/ directory (WORKING_DIRECTORY in CMakeLists.txt)
-    // So: ../build-Release/bin/SDFGen.exe (one level up to project root)
 #ifdef _WIN32
     char abs_exe_path[_MAX_PATH];
-    char abs_res_path[_MAX_PATH];
 
-    // Convert relative paths to absolute
-    // From tests/ directory: go up one level to project root, then to build-Release/bin
-    if (_fullpath(abs_exe_path, "../build-Release/bin/SDFGen.exe", _MAX_PATH) != nullptr) {
-        config.sdfgen_exe_path = abs_exe_path;
-    } else {
-        // Fallback: try without relative navigation
+    // Try multiple possible locations for SDFGen.exe
+    const char* exe_candidates[] = {
+        "../build-Release/bin/SDFGen.exe",  // From tests/ directory
+        "./SDFGen.exe",                      // From build-Release/bin/ directory
+        "SDFGen.exe",                        // Current directory
+    };
+
+    bool exe_found = false;
+    for (const char* candidate : exe_candidates) {
+        if (_fullpath(abs_exe_path, candidate, _MAX_PATH) != nullptr) {
+            // Check if file exists
+            if (_access(abs_exe_path, F_OK) == 0) {
+                config.sdfgen_exe_path = abs_exe_path;
+                exe_found = true;
+                break;
+            }
+        }
+    }
+
+    if (!exe_found) {
+        // Fallback
         config.sdfgen_exe_path = "SDFGen.exe";
     }
-
-    // Resources are in tests/resources/ which is ./resources/ from tests/ directory
-    if (_fullpath(abs_res_path, "./resources/", _MAX_PATH) != nullptr) {
-        config.test_resources_dir = std::string(abs_res_path) + "\\";
-    } else {
-        config.test_resources_dir = "resources/";
-    }
 #else
-    // Unix: relative paths work fine with popen()
-    config.sdfgen_exe_path = "../build-Release/bin/SDFGen.exe";
-    config.test_resources_dir = "./resources/";
+    // Unix: Get the directory containing this test executable and look for SDFGen there
+    char exe_path[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+
+    bool exe_found = false;
+    if (len != -1) {
+        exe_path[len] = '\0';
+        // Get directory by finding last '/'
+        char* last_slash = strrchr(exe_path, '/');
+        if (last_slash != nullptr) {
+            *last_slash = '\0';  // Null terminate at last slash to get directory
+            std::string sdfgen_path = std::string(exe_path) + "/SDFGen";
+
+            // Check if SDFGen exists in the same directory as the test executable
+            if (access(sdfgen_path.c_str(), F_OK) == 0) {
+                config.sdfgen_exe_path = sdfgen_path;
+                exe_found = true;
+            }
+        }
+    }
+
+    if (!exe_found) {
+        // Fallback: try relative paths
+        const char* exe_candidates[] = {
+            "./SDFGen",                      // From build-Release/bin/ directory
+            "../build-Release/bin/SDFGen",   // From tests/ directory
+        };
+
+        for (const char* candidate : exe_candidates) {
+            if (access(candidate, F_OK) == 0) {
+                // Convert to absolute path for reliability
+                char abs_path[PATH_MAX];
+                if (realpath(candidate, abs_path) != nullptr) {
+                    config.sdfgen_exe_path = abs_path;
+                    exe_found = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!exe_found) {
+        // Last resort fallback
+        config.sdfgen_exe_path = "SDFGen";
+    }
 #endif
+
+    // Find resources directory (works from any location)
+    config.test_resources_dir = find_resources_directory();
 
     config.timeout_seconds = 120;
     config.verbose = false;

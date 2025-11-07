@@ -89,9 +89,5 @@ echo [configure_cmake] Configuration complete!
 echo [configure_cmake] Build directory: %BUILD_DIR%
 echo [configure_cmake] ============================================
 echo.
-echo [configure_cmake] Next steps:
-echo [configure_cmake]   To build:   cd %~dp0 ^&^& build_with_vs.bat [target]
-echo [configure_cmake]   Build all:  cd %~dp0 ^&^& build_with_vs.bat all
-echo [configure_cmake] ============================================
 
 exit /b 0

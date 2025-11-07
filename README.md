@@ -334,7 +334,7 @@ SDFGen includes comprehensive test coverage for both C++ and Python components.
 **Test Categories:**
 
 1. **Correctness Tests (3)**
-   - `test_correctness` - Validates CPU/GPU implementation agreement
+   - `test_correctness` - Validates CPU implementation (and CPU/GPU agreement when GPU available)
    - `test_file_io` - Tests SDF file read/write operations
    - `test_mode1_legacy` - Validates legacy OBJ+dx mode
 
@@ -376,6 +376,10 @@ cd build-Release/bin
 **Expected output:**
 - Each test outputs `✓ PASSED` or `✓ ALL TESTS PASSED`
 - Zero failures expected on supported platforms
+
+**Note:** Tests must be run from the `build-Release/bin/` directory where test resources are located.
+
+**Note:** All tests work on CPU-only builds. GPU-specific tests (like `test_correctness` CPU/GPU comparison) automatically skip GPU validation when CUDA is not available or no GPU is detected.
 
 ### Python Test Suite (51 tests)
 

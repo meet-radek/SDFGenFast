@@ -10,8 +10,12 @@ add_library(test_utils STATIC
 target_link_libraries(test_utils PUBLIC
     sdfgen_common
     sdfgen_cpu
-    sdfgen_gpu
 )
+
+# Conditionally link GPU library if available
+if(HAVE_CUDA AND SDFGEN_BUILD_GPU)
+    target_link_libraries(test_utils PUBLIC sdfgen_gpu)
+endif()
 
 target_include_directories(test_utils PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -43,7 +47,7 @@ set_target_properties(test_correctness PROPERTIES
 # Register with CTest
 add_test(NAME correctness_test
     COMMAND test_correctness
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 # Set test properties
@@ -72,7 +76,7 @@ set_target_properties(test_file_io PROPERTIES
 # Register with CTest
 add_test(NAME file_io_test
     COMMAND test_file_io
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 # Set test properties
@@ -101,7 +105,7 @@ set_target_properties(test_stl_file_io PROPERTIES
 # Register with CTest
 add_test(NAME stl_file_io_test
     COMMAND test_stl_file_io
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 # Set test properties
@@ -130,7 +134,7 @@ set_target_properties(test_obj_file_io PROPERTIES
 # Register with CTest
 add_test(NAME obj_file_io_test
     COMMAND test_obj_file_io
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 # Set test properties
@@ -179,7 +183,7 @@ set_target_properties(test_cli_modes PROPERTIES
 
 add_test(NAME cli_modes_test
     COMMAND test_cli_modes
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 set_tests_properties(cli_modes_test PROPERTIES
@@ -206,7 +210,7 @@ set_target_properties(test_cli_formats PROPERTIES
 
 add_test(NAME cli_formats_test
     COMMAND test_cli_formats
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 set_tests_properties(cli_formats_test PROPERTIES
@@ -233,7 +237,7 @@ set_target_properties(test_cli_backend PROPERTIES
 
 add_test(NAME cli_backend_test
     COMMAND test_cli_backend
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 set_tests_properties(cli_backend_test PROPERTIES
@@ -260,7 +264,7 @@ set_target_properties(test_cli_output PROPERTIES
 
 add_test(NAME cli_output_test
     COMMAND test_cli_output
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 set_tests_properties(cli_output_test PROPERTIES
@@ -287,7 +291,7 @@ set_target_properties(test_cli_errors PROPERTIES
 
 add_test(NAME cli_errors_test
     COMMAND test_cli_errors
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 set_tests_properties(cli_errors_test PROPERTIES
@@ -313,7 +317,7 @@ set_target_properties(test_cli_threads PROPERTIES
 
 add_test(NAME cli_threads_test
     COMMAND test_cli_threads
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 set_tests_properties(cli_threads_test PROPERTIES
@@ -339,7 +343,7 @@ set_target_properties(test_thread_slice_ratios PROPERTIES
 
 add_test(NAME thread_slice_ratios_test
     COMMAND test_thread_slice_ratios
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 set_tests_properties(thread_slice_ratios_test PROPERTIES
@@ -365,7 +369,7 @@ set_target_properties(test_ascii_stl PROPERTIES
 
 add_test(NAME ascii_stl_test
     COMMAND test_ascii_stl
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 set_tests_properties(ascii_stl_test PROPERTIES
@@ -392,7 +396,7 @@ set_target_properties(test_mode1_legacy PROPERTIES
 
 add_test(NAME mode1_legacy_test
     COMMAND test_mode1_legacy
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 set_tests_properties(mode1_legacy_test PROPERTIES
@@ -419,7 +423,7 @@ set_target_properties(test_vtk_output PROPERTIES
 
 add_test(NAME vtk_output_test
     COMMAND test_vtk_output
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 set_tests_properties(vtk_output_test PROPERTIES
@@ -442,4 +446,16 @@ set_target_properties(benchmark_performance PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
+)
+
+# ============================================================================
+# Copy test resources to build directory
+# ============================================================================
+# Copy resources/ directory to bin/resources/ so tests can be run from anywhere
+add_custom_target(copy_test_resources ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/resources
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/resources
+    COMMENT "Copying test resources to build directory"
+    VERBATIM
 )

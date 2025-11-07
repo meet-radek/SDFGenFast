@@ -112,30 +112,7 @@ if [ $BUILD_EXIT_CODE -eq 0 ]; then
     echo "============================================"
     echo "SUCCESS: Build completed for '$TARGET'"
     echo "============================================"
-
-    # Show output location for main targets
-    if [ "$TARGET" == "all" ] || [ "$TARGET" == "SDFGen" ]; then
-        echo ""
-        echo "Executable: $BUILD_DIR/bin/SDFGen"
-        echo ""
-        echo "Usage:"
-        echo "  $BUILD_DIR/bin/SDFGen <mesh.stl> <Nx> [padding]"
-        echo "  $BUILD_DIR/bin/SDFGen <mesh.obj> <dx> <padding>"
-        echo ""
-    fi
-
-    # Show test information if building tests
-    if [ "$TARGET" == "all" ] || [[ "$TARGET" == test_* ]]; then
-        echo "To run tests:"
-        echo "  cd $BUILD_DIR"
-        echo "  ctest --output-on-failure"
-        echo ""
-        echo "Or run individual tests:"
-        echo "  cd $PROJECT_ROOT/tests"
-        echo "  ../build-$BUILD_TYPE/bin/$TARGET"
-        echo ""
-    fi
-
+    echo ""
     exit 0
 else
     echo "============================================"
