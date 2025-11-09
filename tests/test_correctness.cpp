@@ -2,13 +2,31 @@
 // Copyright (c) 2015 Christopher Batty, 2025 Brad Chamberlain
 // Licensed under the MIT License - see LICENSE file
 
-// Test harness for validating GPU implementation against CPU reference
+/**
+ * @brief Test harness for validating GPU implementation against CPU reference
+ *
+ * Generates a simple unit cube mesh, computes SDFs using both CPU and GPU backends,
+ * and performs detailed comparison to verify correctness. This is the primary validation
+ * test ensuring GPU implementation produces results consistent with the CPU reference.
+ */
+
 #include "sdfgen_unified.h"  // Unified API with CPU/GPU backend selection
 #include <iostream>
 #include <chrono>
 #include <cmath>
 
-// Generate a simple unit cube mesh centered at origin
+/**
+ * @brief Generate a simple unit cube mesh centered at origin
+ *
+ * Creates an axis-aligned cube with vertices at [-0.5, 0.5]^3. The cube has 8 vertices
+ * and 12 triangles (2 per face). Used as a simple test mesh with known geometry for
+ * validation and benchmarking.
+ *
+ * @param vertList Output parameter for 8 vertex positions
+ * @param faceList Output parameter for 12 triangle indices
+ * @param min_box Output parameter for bounding box minimum corner (-0.5, -0.5, -0.5)
+ * @param max_box Output parameter for bounding box maximum corner (0.5, 0.5, 0.5)
+ */
 void generate_unit_cube(std::vector<Vec3f>& vertList, std::vector<Vec3ui>& faceList,
                         Vec3f& min_box, Vec3f& max_box) {
     // 8 vertices of a unit cube: [-0.5, 0.5]^3

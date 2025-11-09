@@ -95,6 +95,16 @@ def temp_sdf_file():
 
 # Basic functionality tests
 class TestBasicFunctionality:
+    """
+    Test basic SDF generation functionality.
+
+    Tests cover:
+    - SDF generation from numpy arrays
+    - Mesh loading from files (OBJ and STL formats)
+    - High-level API functions (generate_from_file, generate_from_mesh)
+    - SDF file I/O (save/load roundtrip)
+    - Sign convention validation (negative inside, positive outside)
+    """
     def test_generate_sdf_from_arrays(self, simple_cube):
         """Test basic SDF generation from numpy arrays."""
         vertices, triangles = simple_cube
@@ -198,6 +208,16 @@ class TestBasicFunctionality:
 
 # Backend tests
 class TestBackends:
+    """
+    Test hardware backend selection and availability.
+
+    Tests cover:
+    - GPU availability detection
+    - CPU backend functionality
+    - GPU backend functionality (when available)
+    - Auto backend selection
+    - Backend consistency (CPU and GPU produce matching results)
+    """
     def test_is_gpu_available(self):
         """Test GPU availability query."""
         result = sdfgen.is_gpu_available()
@@ -280,6 +300,15 @@ class TestBackends:
 
 # Parameter variation tests
 class TestParameters:
+    """
+    Test parameter validation and variation.
+
+    Tests cover:
+    - Different exact_band values
+    - Different grid resolutions
+    - Thread count variations (CPU backend)
+    - Parameter boundary conditions
+    """
     def test_different_grid_sizes(self, simple_cube):
         """Test with different grid sizes."""
         vertices, triangles = simple_cube
@@ -366,6 +395,15 @@ class TestParameters:
 
 # Error handling tests
 class TestErrorHandling:
+    """
+    Test error handling for invalid inputs.
+
+    Tests cover:
+    - Invalid backend specification
+    - Invalid array dtypes
+    - File not found errors
+    - Empty mesh handling
+    """
     def test_invalid_backend(self, simple_cube):
         """Test that invalid backend raises error."""
         vertices, triangles = simple_cube
@@ -407,6 +445,15 @@ class TestErrorHandling:
 
 # Property tests
 class TestSDFProperties:
+    """
+    Test mathematical properties of SDFs.
+
+    Tests cover:
+    - Sign convention (negative inside, positive outside, zero on surface)
+    - Distance accuracy near surface
+    - Symmetry properties for symmetric meshes
+    - SDF value ranges and bounds
+    """
     def test_zero_crossing_at_surface(self, simple_cube):
         """Test that SDF is approximately zero at the surface."""
         vertices, triangles = simple_cube
@@ -452,6 +499,16 @@ class TestSDFProperties:
 
 # Critical error handling tests
 class TestCriticalErrorHandling:
+    """
+    Test handling of critical errors and edge cases.
+
+    Tests cover:
+    - Empty mesh (no vertices or triangles)
+    - Invalid grid dimensions (zero or negative)
+    - Invalid cell spacing (zero or negative dx)
+    - Extremely small/large grids
+    - Non-contiguous arrays
+    """
     def test_save_sdf_invalid_path(self, simple_cube):
         """Test that save_sdf fails with invalid path."""
         vertices, triangles = simple_cube
@@ -556,6 +613,16 @@ class TestCriticalErrorHandling:
 
 # High-level API parameter tests
 class TestHighLevelAPIParameters:
+    """
+    Test high-level convenience API parameter handling.
+
+    Tests cover:
+    - generate_from_mesh with various grid sizing options
+    - generate_from_file with different parameter combinations
+    - Automatic grid parameter computation
+    - Proportional vs exact grid sizing
+    - Cell spacing (dx) vs grid dimension (nx) specification
+    """
     def test_generate_from_file_with_dx(self, temp_obj_file):
         """Test generate_from_file with dx parameter."""
         sdf, metadata = sdfgen.generate_from_file(temp_obj_file, dx=0.05, padding=2)
@@ -689,7 +756,16 @@ class TestHighLevelAPIParameters:
 
 
 class TestDataValidation:
-    """Tests for validating data types and array structures."""
+    """
+    Test data type and shape validation.
+
+    Tests cover:
+    - Correct array dtypes (float32 for vertices, uint32 for triangles)
+    - Array shape validation (Nx3 for vertices, Mx3 for triangles)
+    - Contiguous array requirements
+    - Parameter type validation
+    - Boundary value handling
+    """
 
     def test_generate_sdf_wrong_vertex_dtype(self, simple_cube):
         """Test that generate_sdf auto-converts compatible vertex dtypes."""
@@ -813,7 +889,17 @@ class TestDataValidation:
 
 
 class TestEdgeCases:
-    """Tests for edge cases and boundary conditions."""
+    """
+    Test edge cases and boundary conditions.
+
+    Tests cover:
+    - Minimal meshes (single triangle)
+    - Very small grids (2x2x2)
+    - Large exact_band values
+    - Degenerate triangles
+    - Extreme padding values
+    - Numerical stability edge cases
+    """
 
     def test_single_triangle_mesh(self):
         """Test SDF generation with minimal mesh (1 triangle)."""

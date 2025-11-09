@@ -1,5 +1,25 @@
 """
-Basic usage examples for SDFGen Python bindings
+Basic usage examples for SDFGen Python bindings.
+
+This script demonstrates the core functionality of the SDFGen Python API through
+six progressive examples covering mesh loading, SDF generation, file I/O, backend
+selection, and multi-resolution processing.
+
+Prerequisites:
+    - SDFGen must be built and installed (pip install . or python setup.py install)
+    - Optional: Example mesh files (bunny.obj, dragon.stl) - examples will guide
+      you to create/use appropriate test meshes
+    - Optional: CUDA-capable GPU for GPU acceleration examples
+
+Running the Examples:
+    python basic_usage.py
+
+The examples will print detailed output showing:
+    - Mesh statistics (vertex/triangle counts, bounding boxes)
+    - SDF grid dimensions and value ranges
+    - Backend selection (CPU/GPU)
+    - Performance metrics
+    - Validation results
 """
 
 import sdfgen
@@ -7,7 +27,22 @@ import numpy as np
 
 
 def example_1_load_and_generate():
-    """Example 1: Load mesh and generate SDF"""
+    """
+    Example 1: Load mesh and generate SDF.
+
+    Demonstrates the basic workflow of loading a mesh file and generating
+    a signed distance field using explicit grid parameters.
+
+    Prerequisites:
+        - Mesh file 'bunny.obj' (or modify path to your own mesh file)
+
+    Expected Output:
+        - Mesh vertex and triangle counts
+        - Mesh bounding box coordinates
+        - SDF grid shape (64x64x64)
+        - Min/max distance values
+        - Backend used (GPU or CPU)
+    """
     print("Example 1: Load mesh and generate SDF")
     print("=" * 50)
 
@@ -43,7 +78,22 @@ def example_1_load_and_generate():
 
 
 def example_2_high_level_api():
-    """Example 2: Using high-level API"""
+    """
+    Example 2: Using high-level API.
+
+    Demonstrates the generate_from_file convenience function that combines
+    mesh loading and SDF generation with automatic grid parameter computation.
+
+    Prerequisites:
+        - Mesh file 'dragon.stl' (or modify path to your own mesh file)
+
+    Expected Output:
+        - SDF grid shape (proportionally sized based on nx=256)
+        - Automatically computed cell size (dx)
+        - Grid origin coordinates
+        - Mesh bounds
+        - Backend used
+    """
     print("Example 2: High-level API (generate_from_file)")
     print("=" * 50)
 
@@ -72,7 +122,22 @@ def example_2_high_level_api():
 
 
 def example_3_programmatic_mesh():
-    """Example 3: Generate SDF from programmatically created mesh"""
+    """
+    Example 3: Generate SDF from programmatically created mesh.
+
+    Demonstrates creating a triangle mesh from scratch (unit cube) and
+    generating an SDF without file I/O. Shows how to analyze the resulting
+    SDF to verify correctness.
+
+    Prerequisites:
+        - None (creates mesh programmatically)
+
+    Expected Output:
+        - SDF grid shape (includes 2 cells padding on each side)
+        - Computed cell size
+        - Value at center (should be negative, indicating inside the mesh)
+        - Count of cells near surface (zero crossing where |sdf| < 0.01)
+    """
     print("Example 3: Programmatic mesh (cube)")
     print("=" * 50)
 
@@ -130,7 +195,23 @@ def example_3_programmatic_mesh():
 
 
 def example_4_save_and_load():
-    """Example 4: Save and load SDF files"""
+    """
+    Example 4: Save and load SDF files.
+
+    Demonstrates saving an SDF to binary file format and loading it back,
+    including metadata preservation and round-trip validation.
+
+    Prerequisites:
+        - None (creates mesh programmatically)
+
+    Expected Output:
+        - Confirmation that SDF was saved to 'triangle.sdf'
+        - Loaded SDF grid shape
+        - Grid origin coordinates
+        - Cell spacing (dx)
+        - Bounding box
+        - Validation that loaded SDF matches original (checkmark or X)
+    """
     print("Example 4: Save and load SDF")
     print("=" * 50)
 
@@ -173,7 +254,24 @@ def example_4_save_and_load():
 
 
 def example_5_backend_comparison():
-    """Example 5: Compare CPU and GPU backends"""
+    """
+    Example 5: Compare CPU and GPU backends.
+
+    Benchmarks CPU vs GPU performance and validates that both backends
+    produce numerically consistent results. Demonstrates backend selection
+    and performance measurement.
+
+    Prerequisites:
+        - CUDA-capable GPU (example will skip if not available)
+
+    Expected Output:
+        - GPU availability status
+        - CPU execution time in seconds
+        - GPU execution time in seconds
+        - Speedup ratio (typically 10-40x for GPU)
+        - Maximum difference between CPU and GPU results
+        - Validation that results match within tolerance (checkmark or X)
+    """
     print("Example 5: Backend comparison")
     print("=" * 50)
 
@@ -241,7 +339,22 @@ def example_5_backend_comparison():
 
 
 def example_6_different_resolutions():
-    """Example 6: Generate SDFs at different resolutions"""
+    """
+    Example 6: Generate SDFs at different resolutions.
+
+    Demonstrates multi-resolution SDF generation and shows how surface
+    representation quality improves with higher resolution. Useful for
+    understanding the resolution-accuracy tradeoff.
+
+    Prerequisites:
+        - None (creates mesh programmatically)
+
+    Expected Output:
+        - For each resolution (16³, 32³, 64³, 128³):
+          * Number of cells near the surface (|sdf| < 0.1)
+        - Higher resolutions will show more cells near surface,
+          indicating finer surface representation
+    """
     print("Example 6: Multi-resolution SDF generation")
     print("=" * 50)
 

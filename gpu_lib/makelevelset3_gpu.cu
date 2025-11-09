@@ -26,20 +26,41 @@ namespace gpu {
 // Data Structures
 // ============================================================================
 
-// Unified struct for atomic distance+triangle updates
+/**
+ * @brief Unified struct for atomic distance and triangle index updates
+ *
+ * Packs signed distance and closest triangle index into a single 64-bit value
+ * for atomic compare-and-swap operations. This allows thread-safe updates of
+ * both distance and triangle index simultaneously in the GPU kernels.
+ */
 struct DistTriPair {
-    float dist;      // 32 bits - signed distance
-    int   tri_idx;   // 32 bits - closest triangle index
+    float dist;      ///< Signed distance value (32 bits)
+    int   tri_idx;   ///< Index of closest triangle (32 bits, -1 if none)
 };
 
 // ============================================================================
 // Device Utility Functions
 // ============================================================================
 
+/**
+ * @brief Compute linear index from 3D grid coordinates
+ * @param i X coordinate
+ * @param j Y coordinate
+ * @param k Z coordinate
+ * @param ni Grid dimension in X
+ * @param nj Grid dimension in Y
+ * @return Linear index in row-major order (i fastest, k slowest)
+ */
 __device__ __host__ inline int grid_index(int i, int j, int k, int ni, int nj) {
     return k * nj * ni + j * ni + i;
 }
 
+/**
+ * @brief Pack distance and triangle index into 64-bit value for atomic operations
+ * @param dist Signed distance value
+ * @param tri_idx Triangle index
+ * @return 64-bit packed value suitable for atomicCAS
+ */
 __device__ inline unsigned long long pack_dist_tri(float dist, int tri_idx) {
     DistTriPair dt;
     dt.dist = dist;
@@ -47,18 +68,44 @@ __device__ inline unsigned long long pack_dist_tri(float dist, int tri_idx) {
     return *reinterpret_cast<unsigned long long*>(&dt);
 }
 
+/**
+ * @brief Unpack 64-bit value into distance and triangle index
+ * @param packed 64-bit packed value from atomicCAS
+ * @return DistTriPair with distance and triangle index
+ */
 __device__ inline DistTriPair unpack_dist_tri(unsigned long long packed) {
     return *reinterpret_cast<DistTriPair*>(&packed);
 }
 
+/**
+ * @brief Compute minimum of three floats
+ * @param a First value
+ * @param b Second value
+ * @param c Third value
+ * @return Minimum of a, b, c
+ */
 __device__ inline float fmin3(float a, float b, float c) {
     return fminf(fminf(a, b), c);
 }
 
+/**
+ * @brief Compute maximum of three floats
+ * @param a First value
+ * @param b Second value
+ * @param c Third value
+ * @return Maximum of a, b, c
+ */
 __device__ inline float fmax3(float a, float b, float c) {
     return fmaxf(fmaxf(a, b), c);
 }
 
+/**
+ * @brief Clamp integer value to range [min_val, max_val]
+ * @param val Value to clamp
+ * @param min_val Minimum allowed value
+ * @param max_val Maximum allowed value
+ * @return Clamped value
+ */
 __device__ inline int clamp_int(int val, int min_val, int max_val) {
     return max(min_val, min(max_val, val));
 }
@@ -67,14 +114,31 @@ __device__ inline int clamp_int(int val, int min_val, int max_val) {
 // Device Geometry Functions
 // ============================================================================
 
+/**
+ * @brief Compute squared magnitude of 3D vector
+ * @param a Input vector
+ * @return Squared magnitude (x² + y² + z²)
+ */
 __device__ float mag2(const Vec3f& a) {
     return a.v[0]*a.v[0] + a.v[1]*a.v[1] + a.v[2]*a.v[2];
 }
 
+/**
+ * @brief Compute dot product of two 3D vectors
+ * @param a First vector
+ * @param b Second vector
+ * @return Dot product (a · b)
+ */
 __device__ float dot_prod(const Vec3f& a, const Vec3f& b) {
     return a.v[0]*b.v[0] + a.v[1]*b.v[1] + a.v[2]*b.v[2];
 }
 
+/**
+ * @brief Compute Euclidean distance between two 3D points
+ * @param a First point
+ * @param b Second point
+ * @return Euclidean distance ||a - b||
+ */
 __device__ float dist(const Vec3f& a, const Vec3f& b) {
     float dx = a.v[0] - b.v[0];
     float dy = a.v[1] - b.v[1];
@@ -82,6 +146,17 @@ __device__ float dist(const Vec3f& a, const Vec3f& b) {
     return sqrtf(dx*dx + dy*dy + dz*dz);
 }
 
+/**
+ * @brief Compute minimum distance from point to line segment
+ *
+ * Calculates the shortest distance from point x0 to the line segment from x1 to x2.
+ * Projects x0 onto the line and clamps to segment endpoints if projection is outside.
+ *
+ * @param x0 Query point
+ * @param x1 Segment start point
+ * @param x2 Segment end point
+ * @return Minimum distance from x0 to segment [x1, x2]
+ */
 __device__ float point_segment_distance(const Vec3f& x0, const Vec3f& x1, const Vec3f& x2) {
     // dx = x2 - x1
     float dx0 = x2.v[0] - x1.v[0];
@@ -110,6 +185,20 @@ __device__ float point_segment_distance(const Vec3f& x0, const Vec3f& x1, const 
     return sqrtf(d0*d0 + d1*d1 + d2*d2);
 }
 
+/**
+ * @brief Compute minimum distance from point to triangle
+ *
+ * Calculates the shortest distance from point x0 to triangle with vertices x1, x2, x3.
+ * Uses barycentric coordinates to check if the projection of x0 onto the triangle plane
+ * lies inside the triangle. If inside, returns perpendicular distance. If outside,
+ * returns minimum distance to the three triangle edges.
+ *
+ * @param x0 Query point
+ * @param x1 First vertex of triangle
+ * @param x2 Second vertex of triangle
+ * @param x3 Third vertex of triangle
+ * @return Minimum Euclidean distance from x0 to triangle
+ */
 __device__ float point_triangle_distance(const Vec3f& x0, const Vec3f& x1, const Vec3f& x2, const Vec3f& x3) {
     // x13 = x1 - x3
     float x13_0 = x1.v[0] - x3.v[0];
@@ -158,6 +247,19 @@ __device__ float point_triangle_distance(const Vec3f& x0, const Vec3f& x1, const
     }
 }
 
+/**
+ * @brief Compute orientation of 2D vector and twice the signed area
+ *
+ * Determines orientation of vector (x1, y1) to (x2, y2) and computes twice
+ * the signed area of the parallelogram. Used for robust point-in-triangle tests.
+ *
+ * @param x1 First vector x component
+ * @param y1 First vector y component
+ * @param x2 Second vector x component
+ * @param y2 Second vector y component
+ * @param twice_signed_area Output parameter for 2× signed area (y1*x2 - x1*y2)
+ * @return 1 if counterclockwise, -1 if clockwise, 0 if collinear
+ */
 __device__ int orientation(double x1, double y1, double x2, double y2, double& twice_signed_area) {
     twice_signed_area = y1*x2 - x1*y2;
     if (twice_signed_area > 0) return 1;
@@ -169,6 +271,25 @@ __device__ int orientation(double x1, double y1, double x2, double y2, double& t
     else return 0;
 }
 
+/**
+ * @brief Test if 2D point is inside triangle using barycentric coordinates
+ *
+ * Determines if point (x0, y0) is inside triangle with vertices (x1,y1), (x2,y2), (x3,y3)
+ * using barycentric coordinate test. Also computes the barycentric coordinates a, b, c.
+ *
+ * @param x0 Query point x coordinate
+ * @param y0 Query point y coordinate
+ * @param x1 Triangle vertex 1 x coordinate
+ * @param y1 Triangle vertex 1 y coordinate
+ * @param x2 Triangle vertex 2 x coordinate
+ * @param y2 Triangle vertex 2 y coordinate
+ * @param x3 Triangle vertex 3 x coordinate
+ * @param y3 Triangle vertex 3 y coordinate
+ * @param a Output barycentric coordinate for vertex 1
+ * @param b Output barycentric coordinate for vertex 2
+ * @param c Output barycentric coordinate for vertex 3
+ * @return true if point is inside or on triangle boundary, false otherwise
+ */
 __device__ bool point_in_triangle_2d(double x0, double y0,
                                      double x1, double y1, double x2, double y2, double x3, double y3,
                                      double& a, double& b, double& c) {
@@ -197,6 +318,19 @@ __device__ bool point_in_triangle_2d(double x0, double y0,
 // Kernel 1: Grid Initialization
 // ============================================================================
 
+/**
+ * @brief CUDA kernel to initialize distance and intersection count grids
+ *
+ * Initializes all grid cells with maximum distance and zero intersection count.
+ * This kernel is launched with 3D thread blocks matching the grid dimensions.
+ *
+ * @param dist_tri Output array of distance-triangle pairs (one per grid cell)
+ * @param intersection_count Output array of intersection counts (one per grid cell)
+ * @param ni Grid dimension in X
+ * @param nj Grid dimension in Y
+ * @param nk Grid dimension in Z
+ * @param max_dist Initial maximum distance value (typically exact_band * dx * sqrt(3))
+ */
 __global__ void initialize_grids_kernel(DistTriPair* dist_tri, int* intersection_count,
                                        int ni, int nj, int nk, float max_dist) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -215,6 +349,28 @@ __global__ void initialize_grids_kernel(DistTriPair* dist_tri, int* intersection
 // Kernel 2: Near-Band Distance with 64-bit Atomic Updates
 // ============================================================================
 
+/**
+ * @brief CUDA kernel for exact distance computation within narrow band around triangles
+ *
+ * Computes exact signed distances for grid cells within exact_band cells of each triangle.
+ * Uses 64-bit atomic compare-and-swap to update distance and closest triangle index
+ * simultaneously. Also tracks ray-triangle intersections for sign determination.
+ *
+ * Each thread processes one triangle and updates all grid cells within its bounding box
+ * expanded by exact_band cells.
+ *
+ * @param tri Triangle indices (num_triangles elements)
+ * @param x Vertex positions
+ * @param dist_tri Distance-triangle pair array (updated atomically)
+ * @param intersection_count Ray intersection count array (updated atomically)
+ * @param num_triangles Number of triangles in mesh
+ * @param origin Grid origin in world coordinates
+ * @param dx Grid cell spacing
+ * @param ni Grid dimension in X
+ * @param nj Grid dimension in Y
+ * @param nk Grid dimension in Z
+ * @param exact_band Distance band in cells for exact computation
+ */
 __global__ void near_band_distance_kernel(
     const Vec3ui* tri, const Vec3f* x,
     DistTriPair* dist_tri, int* intersection_count,
@@ -308,10 +464,26 @@ __global__ void near_band_distance_kernel(
 // ============================================================================
 // Kernel 3: Fast Sweep with Parallel Eikonal Solver
 // ============================================================================
-// This kernel implements a Jacobi-style parallel update for the Eikonal equation.
-// It converges robustly and is significantly faster than propagating triangle indices.
-// The Eikonal equation |∇φ| = 1 means distance changes by dx per grid cell.
 
+/**
+ * @brief CUDA kernel for fast sweeping to propagate distances to far-field cells
+ *
+ * Implements a Jacobi-style parallel update for the Eikonal equation |∇φ| = 1,
+ * which states that distance changes by dx per grid cell. This kernel propagates
+ * distances from the narrow band computed in near_band_distance_kernel to all
+ * remaining grid cells.
+ *
+ * Uses double-buffering (phi_read/phi_write) to avoid race conditions. Multiple
+ * iterations of this kernel converge to the final distance field. Significantly
+ * faster than propagating triangle indices in parallel.
+ *
+ * @param phi_read Input distance values (previous iteration)
+ * @param phi_write Output distance values (current iteration)
+ * @param dx Grid cell spacing
+ * @param ni Grid dimension in X
+ * @param nj Grid dimension in Y
+ * @param nk Grid dimension in Z
+ */
 __global__ void fast_sweep_eikonal_kernel(
     const float* phi_read, float* phi_write,
     float dx, int ni, int nj, int nk)
@@ -382,6 +554,22 @@ __global__ void fast_sweep_eikonal_kernel(
 // Kernel 4: Sign Correction
 // ============================================================================
 
+/**
+ * @brief CUDA kernel to correct distance field signs based on ray-triangle intersections
+ *
+ * Determines inside/outside classification for each grid cell by counting ray-triangle
+ * intersections. Uses the even-odd rule: odd intersection count means inside (negative
+ * distance), even count means outside (positive distance).
+ *
+ * Processes one (j, k) column per thread, accumulating intersection counts along the i axis.
+ * This matches the CPU implementation's sign determination logic.
+ *
+ * @param phi Distance field array (modified in-place to correct signs)
+ * @param intersection_count Ray intersection counts from near_band_distance_kernel
+ * @param ni Grid dimension in X
+ * @param nj Grid dimension in Y
+ * @param nk Grid dimension in Z
+ */
 __global__ void sign_correction_kernel(float* phi, const int* intersection_count,
                                       int ni, int nj, int nk) {
     int j = blockIdx.x * blockDim.x + threadIdx.x;

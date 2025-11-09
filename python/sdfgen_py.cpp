@@ -17,7 +17,15 @@
 namespace nb = nanobind;
 using namespace nb::literals;
 
-// Convert numpy array to std::vector<Vec3f>
+/**
+ * @brief Convert NumPy array of float32 vertices to C++ vector
+ *
+ * Converts Nx3 NumPy array (contiguous, float32) to std::vector<Vec3f> for passing
+ * vertex data from Python to C++ SDF generation functions.
+ *
+ * @param arr NumPy ndarray with shape (N, 3) and dtype float32, C-contiguous
+ * @return std::vector containing N Vec3f vertex positions
+ */
 std::vector<Vec3f> numpy_to_vec3f(nb::ndarray<float, nb::shape<-1, 3>, nb::c_contig> arr) {
     size_t n = arr.shape(0);
     std::vector<Vec3f> result(n);
@@ -30,7 +38,15 @@ std::vector<Vec3f> numpy_to_vec3f(nb::ndarray<float, nb::shape<-1, 3>, nb::c_con
     return result;
 }
 
-// Convert numpy array to std::vector<Vec3ui>
+/**
+ * @brief Convert NumPy array of uint32 triangle indices to C++ vector
+ *
+ * Converts Mx3 NumPy array (contiguous, uint32) to std::vector<Vec3ui> for passing
+ * triangle index data from Python to C++ SDF generation functions.
+ *
+ * @param arr NumPy ndarray with shape (M, 3) and dtype uint32, C-contiguous
+ * @return std::vector containing M Vec3ui triangle index triples
+ */
 std::vector<Vec3ui> numpy_to_vec3ui(nb::ndarray<uint32_t, nb::shape<-1, 3>, nb::c_contig> arr) {
     size_t n = arr.shape(0);
     std::vector<Vec3ui> result(n);
@@ -43,7 +59,15 @@ std::vector<Vec3ui> numpy_to_vec3ui(nb::ndarray<uint32_t, nb::shape<-1, 3>, nb::
     return result;
 }
 
-// Convert Array3f to numpy array (returns a copy)
+/**
+ * @brief Convert C++ Array3f SDF grid to NumPy array
+ *
+ * Copies 3D SDF grid data from internal Array3f format to NumPy ndarray with shape
+ * (ni, nj, nk) and dtype float32. Returns ownership to Python for memory management.
+ *
+ * @param arr Input Array3f signed distance field with dimensions ni x nj x nk
+ * @return NumPy ndarray with shape (ni, nj, nk), dtype float32, C-contiguous
+ */
 nb::ndarray<nb::numpy, float> array3f_to_numpy(const Array3f& arr) {
     size_t ni = arr.ni;
     size_t nj = arr.nj;

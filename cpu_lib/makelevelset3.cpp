@@ -7,7 +7,17 @@
 #include <thread>
 #include <vector>
 
-// find distance x0 is from segment x1-x2
+/**
+ * @brief Compute minimum distance from point to line segment
+ *
+ * Finds the closest point on segment x1-x2 to point x0 and returns the distance.
+ * Uses parametric representation and clamps parameter to [0,1] to handle segment endpoints.
+ *
+ * @param x0 Query point
+ * @param x1 First endpoint of line segment
+ * @param x2 Second endpoint of line segment
+ * @return Minimum Euclidean distance from x0 to segment
+ */
 static float point_segment_distance(const Vec3f &x0, const Vec3f &x1, const Vec3f &x2)
 {
    Vec3f dx(x2-x1);
@@ -23,7 +33,19 @@ static float point_segment_distance(const Vec3f &x0, const Vec3f &x1, const Vec3
    return dist(x0, s12*x1+(1-s12)*x2);
 }
 
-// find distance x0 is from triangle x1-x2-x3
+/**
+ * @brief Compute minimum distance from point to triangle
+ *
+ * Calculates shortest distance from query point x0 to triangle with vertices x1, x2, x3.
+ * Uses barycentric coordinates to check if projection lies inside triangle. If outside,
+ * falls back to checking distances to the three edges.
+ *
+ * @param x0 Query point
+ * @param x1 First vertex of triangle
+ * @param x2 Second vertex of triangle
+ * @param x3 Third vertex of triangle
+ * @return Minimum Euclidean distance from x0 to triangle
+ */
 static float point_triangle_distance(const Vec3f &x0, const Vec3f &x1, const Vec3f &x2, const Vec3f &x3)
 {
    // first find barycentric coordinates of closest point on infinite plane
@@ -47,6 +69,24 @@ static float point_triangle_distance(const Vec3f &x0, const Vec3f &x1, const Vec
    }
 }
 
+/**
+ * @brief Update distance field cell by checking neighboring cell's triangle
+ *
+ * Part of fast sweeping algorithm. If neighbor cell (i1,j1,k1) has a closer triangle
+ * than current cell (i0,j0,k0), updates current cell's distance and closest triangle index.
+ *
+ * @param tri Triangle index array
+ * @param x Vertex position array
+ * @param phi Signed distance field (updated in-place)
+ * @param closest_tri Closest triangle indices per cell (updated in-place)
+ * @param gx World-space position of cell (i0,j0,k0)
+ * @param i0 Current cell i-index
+ * @param j0 Current cell j-index
+ * @param k0 Current cell k-index
+ * @param i1 Neighbor cell i-index
+ * @param j1 Neighbor cell j-index
+ * @param k1 Neighbor cell k-index
+ */
 static void check_neighbour(const std::vector<Vec3ui> &tri, const std::vector<Vec3f> &x,
                             Array3f &phi, Array3i &closest_tri,
                             const Vec3f &gx, int i0, int j0, int k0, int i1, int j1, int k1)
